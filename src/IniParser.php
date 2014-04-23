@@ -41,12 +41,6 @@ class IniParser {
     public $include_original_sections = false;
 
     /**
-     * Parse C-like delimiters in strings (\r\n\t)
-     * @var boolean
-     */
-    public $parse_delimiters = true;
-
-    /**
      * Disable array literal parsing
      */
     const NO_PARSE = 0;
@@ -235,20 +229,6 @@ class IniParser {
     }
 
     /**
-     * Callback for replace delimiters regex
-     * @param array $matches
-     * @return string
-     */
-    protected function replaceDelimiter($matches) {
-        switch ($matches[0]) {
-            case '\\n':return "\n";
-            case '\\t':return "\t";
-            case '\\r':return "\r";
-            default:return $matches[0];
-        }
-    }
-
-    /**
      * Parses and formats the value in a key-value pair
      *
      * @param string $value
@@ -256,10 +236,6 @@ class IniParser {
      * @return mixed
      */
     protected function parseValue($value) {
-        if ($this->parse_delimiters && !is_numeric($value)) {//parse_ini_string treats all values as strings, even numeric ones
-            $value = preg_replace_callback('/(?<!\\\\)\\\\[rnt]/', array($this, 'replaceDelimiter'), $value);
-        }
-        
         switch ($this->array_literals_behavior) {
             case self::PARSE_JSON:
                 if (in_array(substr($value, 0, 1), array('[', '{')) && in_array(substr($value, -1), array(']', '}'))) {
