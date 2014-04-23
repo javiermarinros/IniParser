@@ -233,7 +233,7 @@ class IniParser {
 
         return $output;
     }
-    
+
     /**
      * Callback for replace delimiters regex
      * @param array $matches
@@ -259,7 +259,7 @@ class IniParser {
         if ($this->parse_delimiters && !is_numeric($value)) {//parse_ini_string treats all values as strings, even numeric ones
             $value = preg_replace_callback('/(?<!\\\\)\\\\[rnt]/', array($this, 'replaceDelimiter'), $value);
         }
-
+        
         switch ($this->array_literals_behavior) {
             case self::PARSE_JSON:
                 if (in_array(substr($value, 0, 1), array('[', '{')) && in_array(substr($value, -1), array(']', '}'))) {
