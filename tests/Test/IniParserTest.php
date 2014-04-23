@@ -40,17 +40,14 @@ class IniParserTest extends PHPUnit_Framework_TestCase
         $configObj = $this->getConfig('fixture01.ini');
         $config    = $this->phpUnitDoesntUnderstandArrayObject($configObj);
 
-        $this->assertArrayHasKey('production', $config);
+        $expected = array(
+            'production' => array(
+                'hello' => 'world',
+                'super' => array('funny' => 'config')
+            )
+        );
 
-        $productionConfig = $config['production'];
-
-        $this->assertArrayHasKey('hello', $productionConfig);
-        $this->assertArrayHasKey('super', $productionConfig);
-
-        $super = $productionConfig['super'];
-
-        $this->assertArrayHasKey('funny', $super);
-        $this->assertEquals('config', $super['funny']);
+        $this->assertSame($expected, $config);
     }
 
     /**
@@ -63,10 +60,16 @@ class IniParserTest extends PHPUnit_Framework_TestCase
         $configObj = $this->getConfig('fixture02.ini');
         $config    = $this->phpUnitDoesntUnderstandArrayObject($configObj);
 
-        $this->assertArrayHasKey('prod', $config);
-        $this->assertArrayHasKey('dev', $config);
+        $expected = array(
+            'prod' => array(
+                'hello' => 'world'
+            ),
+            'dev' => array(
+                'hello' => 'world'
+            )
+        );
 
-        $this->assertSame($config['prod'], $config['dev']);
+        $this->assertSame($expected, $config);
     }
 
     /**
@@ -98,6 +101,18 @@ class IniParserTest extends PHPUnit_Framework_TestCase
 
         $this->assertInstanceOf('ArrayObject', $configObj->production->database);
         $this->assertEquals('mysql:host=127.0.0.1', $configObj->production->database->connection);
+    }
+
+    /**
+     * Test delimiter parsing
+     *
+     * @return void
+     */
+    public function testDelimiters()
+    {
+        $configObj = $this->getConfig('fixture12.ini');
+
+        $this->assertEquals("Lorem \n ipsum \r dolor \t sit \\n amet, \\r consectetur \\t adipiscing elit.", $configObj->helloworld->lorem);
     }
 
     /**
@@ -171,27 +186,41 @@ class IniParserTest extends PHPUnit_Framework_TestCase
         $configObj = $this->getConfig('fixture03.ini');
         $config    = $this->phpUnitDoesntUnderstandArrayObject($configObj);
 
-        $this->assertArrayHasKey('environment', $config);
-        $this->assertEquals('testing', $config['environment']);
+        $expected = array(
+            'environment' => 'testing',
+            'testing' => array(
+                'debug' => true,
+                'database' => array(
+                    'connection' => 'mysql:host=127.0.0.1',
+                    'name' => 'test',
+                    'username' => '',
+                    'password' => ''
+                ),
+                'secrets' => array(1, 2, 3)
+            ),
+            'staging' => array(
+                'debug' => true,
+                'database' => array(
+                    'connection' => 'mysql:host=127.0.0.1',
+                    'name' => 'stage',
+                    'username' => 'staging',
+                    'password' => 12345
+                ),
+                'secrets' => array(1, 2, 3)
+            ),
+            'production' => array(
+                'debug' => false,
+                'database' => array(
+                    'connection' => 'mysql:host=127.0.0.1',
+                    'name' => 'production',
+                    'username' => 'root',
+                    'password' => 12345
+                ),
+                'secrets' => array(1, 2, 3)
+            )
+        );
 
-        $this->assertArrayHasKey('testing', $config);
-        $this->assertArrayHasKey('staging', $config);
-        $this->assertArrayHasKey('production', $config);
-
-        $confTesting = $config['testing'];
-        $confStaging = $config['staging'];
-        $confProd    = $config['production'];
-
-        $this->assertEquals('', $confTesting['database']['username']);
-        $this->assertEquals('staging', $confStaging['database']['username']);
-        $this->assertEquals('root', $confProd['database']['username']);
-
-        $this->assertEmpty($confTesting['database']['password']);
-        $this->assertEquals($confStaging['database']['password'], $confProd['database']['password']);
-
-        $this->assertEquals('1', $confTesting['debug']);
-        $this->assertEquals('1', $confStaging['debug']);
-        $this->assertEquals('', $confProd['debug']);
+        $this->assertEquals($expected, $config);
     }
 
     /**
@@ -250,8 +279,7 @@ class IniParserTest extends PHPUnit_Framework_TestCase
      *
      * @return void
      */
-    public function testArrayWithZeroAsKey()
-    {
+    public function testArrayWithZeroAsKey() {
         $configObj = $this->getConfig('fixture09.ini');
         $config    = $this->phpUnitDoesntUnderstandArrayObject($configObj);
 
@@ -262,15 +290,103 @@ class IniParserTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Tests that json is parsed as expected
+     *
+     * @return void
+     */
+    public function testJson() {
+        $configObj = $this->getConfig('fixture10.ini',
+            array('array_literals_behavior' => IniParser::PARSE_JSON));
+        $config = $this->phpUnitDoesntUnderstandArrayObject($configObj);
+
+        $this->assertObjectHasAttribute('people', $configObj);
+
+        $array = array(
+            'boss' => array(
+                'name' => 'John',
+                'age' => 42,
+            ),
+            'staff' => array(
+                array(
+                    'name' => 'Mark',
+                    'age' => 35,
+                ),
+                array(
+                    'name' => 'Bill',
+                    'age' => 44,
+                ),
+            ),
+        );
+
+        $this->assertEquals($array, $config['people']);
+    }
+
+    public function testNoPropertyNesting() {
+        $configObj = $this->getConfig('fixture03.ini',
+            array('property_nesting' => false));
+        $config = $this->phpUnitDoesntUnderstandArrayObject($configObj);
+
+        $expected = array(
+            'environment' => 'testing',
+            'testing' => array(
+                'debug' => true,
+                'database.connection' => 'mysql:host=127.0.0.1',
+                'database.name' => 'test',
+                'database.username' => '',
+                'database.password' => '',
+                'secrets' => array(1, 2, 3)
+            ),
+            'staging' => array(
+                'debug' => true,
+                'database.connection' => 'mysql:host=127.0.0.1',
+                'database.name' => 'stage',
+                'database.username' => 'staging',
+                'database.password' => 12345,
+                'secrets' => array(1, 2, 3)
+            ),
+            'production' => array(
+                'debug' => false,
+                'database.connection' => 'mysql:host=127.0.0.1',
+                'database.name' => 'production',
+                'database.username' => 'root',
+                'database.password' => 12345,
+                'secrets' => array(1, 2, 3)
+            )
+        );
+
+        $this->assertEquals($expected, $config);
+    }
+
+    /**
+     * Tests that appending to a potentially non-existent array works as expected
+     * when also using property nesting.
+     *
+     * @return void
+     */
+    public function testNestedArrayAppend()
+    {
+        $configObj = $this->getConfig('fixture11.ini');
+        $config    = $this->phpUnitDoesntUnderstandArrayObject($configObj);
+        $expected = array(1, 2, 'c');
+
+        $this->assertArrayHasKey('nesting', $config);
+        $this->assertArrayHasKey('a', $config['nesting']);
+        $this->assertEquals($expected, $config['nesting']['a']);
+    }
+
+    /**
      * Create a config array (from the given fixture).
      *
      * @param $file
      *
      * @return array
      */
-    protected function getConfig($file)
+    protected function getConfig($file, $options = array())
     {
         $parser = new IniParser(BASE_DIR . '/tests/fixtures/' . $file);
+        foreach ($options as $key => $value) {
+            $parser->$key = $value;
+        }
         $config = $parser->parse();
         return $config;
     }
