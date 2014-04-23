@@ -88,6 +88,18 @@ class IniParserTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test delimiter parsing
+     *
+     * @return void
+     */
+    public function testDelimiters()
+    {
+        $configObj = $this->getConfig('fixture11.ini');
+
+        $this->assertEquals("Lorem \n ipsum \r dolor \t sit \\n amet, \\r consectetur \\t adipiscing elit.", $configObj->helloworld->lorem);
+    }
+
+    /**
      * Make sure stacked configuration settings are always 'ArrayObject'.
      *
      * @return void
